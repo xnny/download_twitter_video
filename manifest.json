@@ -1,9 +1,9 @@
 {
   "name": "下载 Twitter 视频",
   "description" : "下载 Twitter 里的视频",
-  "version": "1.0",
+  "version": "8",
   "browser_action": {
-    "default_popup": "twitter.html",
+    "name": "下载视频",
     "default_icon": "img/icon.png"
   },
   "icons": {
@@ -23,6 +23,7 @@
     }
   ],
   "permissions": [
+    "downloads",
     "debugger",
     "webRequest",
     "webRequestBlocking",
