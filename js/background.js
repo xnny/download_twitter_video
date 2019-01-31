@@ -5,47 +5,49 @@
  * Time: 20:43
  */
 
+function get_tweet_status(pathname) {
+    let path_arr = pathname.split('status/');
+    if (path_arr.length < 2) {
+        return '';
+    }
+    return path_arr.pop();
+    alert(path_arr);
+}
+
 
 /**
  * 生成 JSON 文件
  * @param cookies_list
  * @returns {string}
  */
-function generate_cookies_json(cookies_list) {
-    let data_list = [];
+function generate_cookies(cookies_list) {
+    let cookies_obj = {};
     cookies_list.forEach(function (item) {
-        let obj_name = item.name, new_item = {};
-        new_item[obj_name] = item.value;
-        data_list.push(new_item)
+        let obj_name = item.name;
+        cookies_obj[obj_name] = item.value;
     });
-    return JSON.stringify(data_list);
+    return cookies_obj;
 }
 
-function get_mp4_url(status_code, json_data) {
-    // let config_id = __domain_key[domain];
-    // let form_data = new FormData();
-    // form_data.append('option', config_id);
-    // form_data.append('content', json_data);
-    /*let send_obj = {
-        'method': 'GET',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        headers: {
-            "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
-        },
-        'body': form_data
-    };*/
-    /**
-     :
-     ::
+function down_load(mp4_url) {
+    chrome.downloads.download({
+        url: mp4_url,
+        conflictAction: 'uniquify',
+        saveAs: false
+    });
+}
 
-     :
-     x-twitter-client-language: zh-tw
-     */
+/**
+ * 获得
+ * @param status_code
+ * @param cookies
+ */
+function get_mp4_url(status_code, cookies) {
 
     let header = {
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-        "x-csrf-token": '76b68f34a0b9956b639e5a4fe1ff54b2',
+        "x-csrf-token": cookies.ct0,
         'x-twitter-active-user': 'yes',
         'x-twitter-auth-type': 'OAuth2Session',
     };
@@ -59,12 +61,26 @@ function get_mp4_url(status_code, json_data) {
     ).then(function (response) {
         response.json().then(function(json_data) {
             // JSON.globalObjects.tweets[1088636851110535168].extended_entities.media[0].video_info.variants[2].url
-            let mp4_url = json_data.globalObjects.tweets[status_code].extended_entities.media[0].video_info.variants[2].url;
-            chrome.downloads.download({
-                url: mp4_url,
-                conflictAction: 'uniquify',
-                saveAs: false
+            let mp4_arr = json_data.globalObjects.tweets[status_code].extended_entities.media[0].video_info.variants;
+            mp4_arr = mp4_arr.reverse();
+            let downloaded = false;
+            mp4_arr.forEach(function (item) {
+                let content_type = item.content_type;
+                if (content_type === 'video/mp4') {
+                    let mp4_url = item.url;
+                    if (downloaded === false) {
+                        down_load(mp4_url);
+                    }
+                    downloaded = true;
+
+                    return false;
+                }
             });
+            // console.log(mp4_arr);
+            return false;
+
+            // let mp4_url = json_data.globalObjects.tweets[status_code].extended_entities.media[0].video_info.variants[2].url;
+
         });
         console.log(response.status)
     }).catch(error=> console.error('Error:', error));
@@ -73,17 +89,36 @@ function get_mp4_url(status_code, json_data) {
 
 function main() {
     let cookies_url = 'https://twitter.com/';
-    console.log(cookies_url);
-    chrome.cookies.getAll(
-        {'url': cookies_url},
-        function (cookies) {
-            let json_str = generate_cookies_json(cookies);
-            console.log('json_str', json_str);
-            get_mp4_url('1088636851110535168', '');
-            // save_cookies(domain, json_str);
+    chrome.tabs.query(
+        { active: true },
+        function (tabs) {
+            let tab = tabs[0];
+            let url_obj = new URL(tab.url);
+            let pathname = url_obj.pathname;
+            let domain = url_obj.hostname;
+            let tweet_domain_list = ['mobile.twitter.com', 'twitter.com', ];
+            let index_int = tweet_domain_list.indexOf(domain);
+            if (index_int < 0) {
+                alert('只支持 Twitter 官网');
+                return false;
+            }
+
+            let tweet_code = get_tweet_status(pathname);
+            if (tweet_code === '') {
+                alert('找不到 tweet 信息');
+                return false;
+            }
+            chrome.cookies.getAll(
+                {'url': cookies_url},
+                function (cookies) {
+                    let cookies_obj = generate_cookies(cookies);
+                    get_mp4_url(tweet_code, cookies_obj);
+                }
+            );
         }
     );
-    alert('xx');
+    /**/
+    // alert('xx');
 }
 
 /**
